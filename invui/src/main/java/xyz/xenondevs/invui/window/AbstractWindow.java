@@ -609,7 +609,7 @@ non-sealed abstract class AbstractWindow<M extends CustomContainerMenu> implemen
         menu.setCursor(null);
 
         if (cause == Reason.PLAYER && FuncUtils.getSafely(fallbackWindow, DEFAULT_FALLBACK_WINDOW) instanceof AbstractWindow<?> fallback) {
-            viewer.getScheduler().runDelayed(InvUI.getInstance().getPlugin(), task -> {
+            viewer.getScheduler().run(InvUI.getInstance().getPlugin(), task -> {
                 if (!viewer.isOnline() || !viewer.isValid() || !viewer.isConnected()) {
                     return;
                 }
@@ -625,7 +625,7 @@ non-sealed abstract class AbstractWindow<M extends CustomContainerMenu> implemen
             }, () -> {
                 // The player was removed or disconnected before this task could run.
                 // Do not open the fallback window anymore.
-            }, 2L);
+            });
         } else {
             InventoryUtils.addToInventoryOrDrop(viewer, cursor);
         }
