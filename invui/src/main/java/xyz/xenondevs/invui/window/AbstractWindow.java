@@ -591,25 +591,45 @@ non-sealed abstract class AbstractWindow<M extends CustomContainerMenu> implemen
     @Override
     public void handleClose(Reason cause) {
         // might have already been called by close() or open() if the window was replaced by another one
-        if (!isOpen)
+        if (!isOpen) {
             return;
-        
+        }
+
         WindowManager.getInstance().removeWindow(this);
-        if (tickTask != null)
+
+        if (tickTask != null) {
             tickTask.cancel();
+        }
+
         unregisterAsViewer();
         menu.handleClosed();
         isOpen = false;
-        
+
         ItemStack cursor = menu.getCursor();
         menu.setCursor(null);
+
         if (cause == Reason.PLAYER && FuncUtils.getSafely(fallbackWindow, DEFAULT_FALLBACK_WINDOW) instanceof AbstractWindow<?> fallback) {
-            fallback.menu.setCursor(cursor);
-            fallback.open();
+            viewer.getScheduler().runDelayed(InvUI.getInstance().getPlugin(), task -> {
+                if (!viewer.isOnline() || !viewer.isValid() || !viewer.isConnected()) {
+                    return;
+                }
+
+                // Do not override another window that may have opened during the delay.
+                if (WindowManager.getInstance().getOpenWindow(viewer) != null) {
+                    InventoryUtils.addToInventoryOrDrop(viewer, cursor);
+                    return;
+                }
+
+                fallback.menu.setCursor(cursor);
+                fallback.open();
+            }, () -> {
+                // The player was removed or disconnected before this task could run.
+                // Do not open the fallback window anymore.
+            }, 2L);
         } else {
             InventoryUtils.addToInventoryOrDrop(viewer, cursor);
         }
-        
+
         try {
             isInCloseHandlerContext.set(isInCloseHandlerContext.get() + 1);
             forEachCatching(closeHandlers, handler -> handler.accept(cause), "Failed to handle window close");
