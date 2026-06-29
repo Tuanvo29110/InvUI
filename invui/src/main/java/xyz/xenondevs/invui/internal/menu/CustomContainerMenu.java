@@ -720,7 +720,9 @@ public abstract class CustomContainerMenu {
      */
     private class ContainerMenuProxy extends AbstractContainerMenu {
         
-        private final Inventory bukkitInventory = new CraftInventory(new SimpleContainer(0));
+        private final Inventory bukkitInventory = new CraftInventory(
+            new SimpleContainer(InventoryUtils2.getSizeOf(CustomContainerMenu.this.menuType))
+        );
         
         public ContainerMenuProxy() {
             super(CustomContainerMenu.this.menuType, CustomContainerMenu.this.containerId);
