@@ -46,8 +46,8 @@ public class CustomCrafterMenu extends CustomContainerMenu {
     
     @Override
     protected UpdateType processPacket(Packet<? super ServerGamePacketListener> packet) {
-        if (packet instanceof ServerboundContainerSlotStateChangedPacket p && p.containerId() == containerId) {
-            handleSlotStateChange(p);
+        if (packet instanceof ServerboundContainerSlotStateChangedPacket slotStateChangedPacket) {
+            handleSlotStateChange(slotStateChangedPacket);
             return UpdateType.NONE;
         } else {
             return super.processPacket(packet);

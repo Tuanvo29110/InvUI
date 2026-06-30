@@ -52,8 +52,8 @@ public abstract class CustomRecipeBookPoweredMenu extends CustomContainerMenu {
     
     @Override
     protected UpdateType processPacket(Packet<? super ServerGamePacketListener> packet) {
-        if (packet instanceof ServerboundPlaceRecipePacket p && p.containerId() == containerId) {
-            handleRecipePlace(p);
+        if (packet instanceof ServerboundPlaceRecipePacket) {
+            handleRecipePlace((ServerboundPlaceRecipePacket) packet);
             return UpdateType.NONE;
         } else {
             return super.processPacket(packet);
