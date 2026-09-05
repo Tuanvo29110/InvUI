@@ -265,13 +265,21 @@ non-sealed abstract class AbstractWindow<M extends CustomContainerMenu> implemen
 
         updateType = updateType.or(updateSlots());
 
-        // title update resends entire inventory, so changes only need to be sent if title is not updated
+        // a title update resends the entire inventory, but it is skipped when the title did not
+        // actually change, and updateSlots() has already consumed the dirty set by then -- so the
+        // item changes have to be sent here or they are lost until the next full resend
+        boolean titleSent = false;
         if (dirtyTitle) {
             dirtyTitle = false;
-            actuallyUpdateTitle();
+            titleSent = actuallyUpdateTitle();
         } else if (titleSupplier instanceof AnimatedTitle) {
-            actuallyUpdateTitle();
-        } else if (updateType == UpdateType.FULL) {
+            titleSent = actuallyUpdateTitle();
+        }
+
+        if (titleSent)
+            return;
+
+        if (updateType == UpdateType.FULL) {
             menu.sendAllToRemote(pingId);
         } else if (updateType == UpdateType.DIRTY) {
             menu.sendChangesToRemote(pingId);
@@ -308,13 +316,14 @@ non-sealed abstract class AbstractWindow<M extends CustomContainerMenu> implemen
         return changedAny ? UpdateType.DIRTY : UpdateType.NONE;
     }
     
-    private void actuallyUpdateTitle() {
+    private boolean actuallyUpdateTitle() {
         var title = getTitle();
         if (title == activeTitle || title.equals(activeTitle))
-            return;
+            return false;
         activeTitle = title;
 
         menu.sendOpenPacket(Languages.getInstance().localized(viewer, title));
+        return true;
     }
     
     private void onCursorVisualizerChange() {
