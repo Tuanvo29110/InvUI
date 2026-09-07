@@ -9,6 +9,7 @@ public enum MenuType {
     GENERIC_9x4,
     GENERIC_9x5,
     GENERIC_9x6,
+    GENERIC_8x6,
     GENERIC_3x3,
     /** Added in 1.21; not available on 1.20.5. */
     CRAFTER_3x3,
@@ -61,6 +62,7 @@ public enum MenuType {
             case GENERIC_9x4 -> 36;
             case GENERIC_9x5 -> 45;
             case GENERIC_9x6 -> 54;
+            case GENERIC_8x6 -> 48;
             case GENERIC_3x3 -> 9;
             case CRAFTER_3x3 -> 10;
             case ANVIL, FURNACE -> 3;
@@ -109,6 +111,12 @@ public enum MenuType {
                 case 5 -> GENERIC_9x5;
                 case 6 -> GENERIC_9x6;
                 default -> throw new IllegalArgumentException("Illegal height " + height + " for width 9");
+            };
+        }
+        if (width == 8) {
+            return switch (height) {
+                case 6 -> GENERIC_8x6;
+                default -> throw new IllegalArgumentException("Illegal height " + height + " for width 8");
             };
         }
         throw new IllegalArgumentException("No matching generic menu for " + width + "x" + height);
