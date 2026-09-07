@@ -66,15 +66,12 @@ public abstract class CustomContainerMenu {
         return id;
     }
 
-    /** Empty top inventory shared by every menu's stand-in {@link #view}; never mutated (size 0). */
-    private static final org.bukkit.inventory.Inventory EMPTY_VIEW_TOP = new VirtualInventory(0).asBukkitInventory();
-
     protected final MenuType menuType;
     protected final int containerId;
     protected final Player player;
     /**
      * Stand-in Bukkit {@link InventoryView} for this menu, used only when firing Bukkit inventory
-     * events. Its top inventory is empty, so a raw slot maps directly onto the player inventory.
+     * events.
      */
     private final InventoryView view;
     private @Nullable Window window;
@@ -142,7 +139,7 @@ public abstract class CustomContainerMenu {
     protected CustomContainerMenu(MenuType menuType, Player player) {
         this.menuType = menuType;
         this.player = player;
-        this.view = new FakeInventoryView(player, EMPTY_VIEW_TOP);
+        this.view = new FakeInventoryView(player, new VirtualInventory(menuType.size()).asBukkitInventory());
         this.containerId = nextContainerId();
 
         int size = menuType.size() + LOWER_INVENTORY_SIZE;
