@@ -48,12 +48,16 @@ view.openOrElse(reason -> player.sendMessage("Please update Minecraft."));
 view.close();
 ```
 
-The builder delegates to Paper's `Dialog.create`, `DialogBase`, `DialogBody`,
-`DialogInput`, and `DialogType` APIs. It removes the repetitive base-building
-boilerplate without recreating Paper's complete dialog model. Its common
-configuration includes the viewer, title, body entries, input entries, dialog
-type, escape-key closing, and external title. Advanced Paper features remain
-available through `DialogView.of(Player, DialogLike)`.
+The builder delegates to Paper's `Dialog.create`,
+`io.papermc.paper.registry.data.dialog.DialogBase`,
+`io.papermc.paper.registry.data.dialog.body.DialogBody`,
+`io.papermc.paper.registry.data.dialog.input.DialogInput`, and
+`io.papermc.paper.registry.data.dialog.type.DialogType` APIs. It removes the
+repetitive base-building boilerplate without recreating Paper's complete
+dialog model. Its common configuration includes the viewer, title, body
+entries, input entries, dialog type, escape-key closing, and external title.
+Advanced Paper features remain available through
+`DialogView.of(Player, DialogLike)`.
 
 The builder requires a non-null viewer, title, and dialog type. `build()` fails
 immediately with an `IllegalStateException` naming each missing required value;
