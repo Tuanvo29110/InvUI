@@ -23,7 +23,9 @@ Add package `xyz.xenondevs.invui.dialog` with:
   fallback, unsupported client, and invalid viewer paths.
 
 `DialogView` supports both a convenient InvUI-style builder and an escape hatch
-for a dialog built directly with Paper:
+for a dialog built directly with Paper. The builder and its `builder()` factory
+are marked `@ApiStatus.Experimental` because they wrap Paper APIs that Paper
+currently marks experimental:
 
 ```java
 DialogView view = DialogView.builder()
@@ -53,6 +55,10 @@ configuration includes the viewer, title, body entries, input entries, dialog
 type, escape-key closing, and external title. Advanced Paper features remain
 available through `DialogView.of(Player, DialogLike)`.
 
+The builder requires a non-null viewer, title, and dialog type. `build()` fails
+immediately with an `IllegalStateException` naming each missing required value;
+it does not create a partially configured Paper dialog.
+
 The wrapper is stateless with respect to server dialog lifecycle. Each call is
 one deterministic open attempt; a supplier or callback is invoked at most once
 for that attempt. Paper owns dialog callbacks and lifecycle state.
@@ -78,6 +84,10 @@ No ViaVersion or PacketEvents dependency is added. A protocol check is kept in
 `UNSUPPORTED_CLIENT` for an unsupported or unknown protocol, and
 `INVALID_VIEWER` for a sleeping, invalid, or disconnected viewer.
 
+`DIALOG_OPENED` means that InvUI passed its validation and successfully called
+Paper's `showDialog` API. Paper does not provide a client acknowledgement, so
+this result does not prove that the client rendered the dialog.
+
 `open()` is strict. It opens the dialog or throws `IllegalStateException` for
 an unsupported or invalid viewer instead of silently doing nothing.
 
@@ -96,14 +106,21 @@ supplier means that no fallback was provided. Supplier exceptions and Paper or
 Window open failures propagate; InvUI does not silently swallow them or invoke
 another fallback afterward.
 
-`openOrElse(Consumer)` invokes the consumer exactly once for an unsupported or
-invalid result and returns `CUSTOM_FALLBACK_HANDLED`. It is not invoked when
-the dialog opens. If the consumer throws, that exception propagates.
+`openOrElse(Consumer)` invokes the consumer exactly once for
+`UNSUPPORTED_CLIENT` and returns `CUSTOM_FALLBACK_HANDLED`. It is not invoked
+for `INVALID_VIEWER` or when the dialog opens. If the consumer throws, that
+exception propagates.
 
-All actual UI operations and fallback callbacks for a usable viewer run on the
-viewer-owned thread through the existing `ThreadCheck` convention. Dialog
-opening does not close or register an InvUI `Window`. `close()` delegates to
-`Player.closeDialog()` so an underlying inventory is preserved.
+The caller must already be on the viewer-owned thread. Before performing a UI
+operation, `DialogView` validates this with
+`ThreadCheck.checkOwnedBy(viewer)`; `ThreadCheck` only validates and never
+schedules the operation. Dialog opening does not close or register an InvUI
+`Window`.
+
+`close()` has separate semantics from opening: it validates the caller's
+viewer-owned thread and delegates to `Player.closeDialog()`, preserving an
+underlying inventory. It does not reuse the full open usability check, so a
+sleeping player is not rejected solely for that reason.
 
 ## Tests
 
@@ -118,10 +135,12 @@ Add Java tests in `invui/src/test/java` for:
   the fallback path;
 * custom callback evaluation exactly once;
 * invalid viewers and null fallback results;
-* no changes to existing Window or Kotlin-module behavior.
+* no files under `invui-kotlin/` are modified.
 
 ## Validation
 
 Run Java-only Gradle tests and compilation for `:invui`, inspect diagnostics and
 formatting for affected Java files, then review the complete diff and confirm
-that no path under `invui-kotlin/` was read or changed.
+that no path under `invui-kotlin/` was modified. The implementation relies on
+the protocol value Paper reports; it does not promise native-client detection
+through every proxy or protocol-translation setup and does not add ViaVersion.
