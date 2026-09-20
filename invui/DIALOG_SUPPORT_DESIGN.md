@@ -8,23 +8,35 @@ existing inventory `Window` lifecycle remains unchanged, and no file under
 
 Paper's public API is the integration boundary: `Player.showDialog(DialogLike)`
 opens the dialog and `Player.closeDialog()` closes it without closing an
-underlying inventory. InvUI does not reimplement Paper's dialog builders or
-manage dialog action callbacks.
+underlying inventory. InvUI adds a small convenience builder around Paper's
+builder, but does not reimplement Paper's complete dialog model or manage
+dialog action callbacks.
 
 ## Public API
 
 Add package `xyz.xenondevs.invui.dialog` with:
 
 * `DialogView` — an immutable wrapper around a `Player` and an Adventure
-  `DialogLike`.
+  `DialogLike`, with an InvUI-style builder for common dialogs.
 * `DialogSupport` — the single source of truth for client compatibility.
 * `DialogOpenResult` — explicit results for dialog, Window fallback, custom
   fallback, unsupported client, and invalid viewer paths.
 
-`DialogView` exposes these operations:
+`DialogView` supports both a convenient InvUI-style builder and an escape hatch
+for a dialog built directly with Paper:
 
 ```java
-DialogView view = DialogView.of(player, paperDialog);
+DialogView view = DialogView.builder()
+    .setViewer(player)
+    .setTitle(Component.text("Confirm"))
+    .addBody(DialogBody.plainMessage(Component.text("Continue?")))
+    .setType(DialogType.confirmation(
+        ActionButton.builder(Component.text("Yes")).build(),
+        ActionButton.builder(Component.text("No")).build()
+    ))
+    .build();
+
+DialogView existing = DialogView.of(player, paperDialog);
 
 view.open();
 DialogOpenResult result = view.tryOpen();
@@ -33,6 +45,13 @@ view.openOrFallback(() -> createFallbackWindow(player));
 view.openOrElse(reason -> player.sendMessage("Please update Minecraft."));
 view.close();
 ```
+
+The builder delegates to Paper's `Dialog.create`, `DialogBase`, `DialogBody`,
+`DialogInput`, and `DialogType` APIs. It removes the repetitive base-building
+boilerplate without recreating Paper's complete dialog model. Its common
+configuration includes the viewer, title, body entries, input entries, dialog
+type, escape-key closing, and external title. Advanced Paper features remain
+available through `DialogView.of(Player, DialogLike)`.
 
 The wrapper is stateless with respect to server dialog lifecycle. Each call is
 one deterministic open attempt; a supplier or callback is invoked at most once
@@ -91,6 +110,7 @@ opening does not close or register an InvUI `Window`. `close()` delegates to
 Add Java tests in `invui/src/test/java` for:
 
 * protocol 770, 771, values above 771, and unknown `-1`;
+* InvUI builder creation and Paper-dialog escape hatch;
 * supported dialog selection;
 * strict and result-based opening;
 * Window fallback selection;
@@ -105,4 +125,3 @@ Add Java tests in `invui/src/test/java` for:
 Run Java-only Gradle tests and compilation for `:invui`, inspect diagnostics and
 formatting for affected Java files, then review the complete diff and confirm
 that no path under `invui-kotlin/` was read or changed.
-
