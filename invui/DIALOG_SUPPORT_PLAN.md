@@ -351,12 +351,12 @@ void invalidViewerSkipsSupplierAndCallback() {
 }
 ```
 
-Also test strict `open()` exceptions, same-viewer validation for a real
-`Window`, and `close()` with a sleeping test player. The `close()` test must
+Also test strict `open()` exceptions, same-viewer validation through the
+package-private pure UUID validator, and `close()` with a sleeping test player. The `close()` test must
 assert that `closeDialog()` was called even though `isSleeping()` is true.
-When the MockBukkit runtime cannot exercise a real Window open, retain the
-pure supplier/callback tests above and test same-viewer validation before any
-Window operation.
+The MockBukkit runtime does not include the NMS classes needed to construct a
+real Window, so the public fallback method is covered through supplier-count
+tests and the pure validator is tested directly before any Window operation.
 
 - [ ] **Step 2: Run the tests and verify they fail for missing behavior**
 

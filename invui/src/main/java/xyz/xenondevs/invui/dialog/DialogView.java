@@ -11,10 +11,14 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.ApiStatus;
 import org.jspecify.annotations.Nullable;
+import xyz.xenondevs.invui.internal.util.ThreadCheck;
+import xyz.xenondevs.invui.window.Window;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 /**
  * Associates a Paper dialog with the player it should be shown to.
@@ -66,6 +70,106 @@ public final class DialogView {
      */
     public DialogLike getDialog() {
         return dialog;
+    }
+
+    /**
+     * Tries to show the dialog without a fallback.
+     *
+     * @return the result of the opening attempt
+     */
+    public DialogOpenResult tryOpen() {
+        if (!isUsableViewer())
+            return DialogOpenResult.INVALID_VIEWER;
+        
+        ThreadCheck.checkOwnedBy(viewer);
+        if (!DialogSupport.isSupported(viewer))
+            return DialogOpenResult.UNSUPPORTED_CLIENT;
+        
+        viewer.showDialog(dialog);
+        return DialogOpenResult.DIALOG_OPENED;
+    }
+    
+    /**
+     * Shows the dialog strictly.
+     *
+     * @throws IllegalStateException if the viewer is invalid or its client is
+     *     not supported
+     */
+    public void open() {
+        switch (tryOpen()) {
+            case DIALOG_OPENED -> {}
+            case UNSUPPORTED_CLIENT -> throw new IllegalStateException("The viewer's client does not support dialogs.");
+            case INVALID_VIEWER -> throw new IllegalStateException("The dialog viewer is invalid.");
+            default -> throw new AssertionError();
+        }
+    }
+    
+    /**
+     * Shows the dialog or opens a Window fallback for the same viewer.
+     *
+     * @param fallback the fallback Window
+     * @return the result of the opening attempt
+     */
+    public DialogOpenResult openOrFallback(Window fallback) {
+        Objects.requireNonNull(fallback, "fallback");
+        return openOrFallback(() -> fallback);
+    }
+    
+    /**
+     * Shows the dialog or lazily creates and opens a Window fallback for the
+     * same viewer.
+     *
+     * @param fallbackSupplier the lazy fallback Window supplier
+     * @return the result of the opening attempt
+     */
+    public DialogOpenResult openOrFallback(Supplier<? extends @Nullable Window> fallbackSupplier) {
+        Objects.requireNonNull(fallbackSupplier, "fallbackSupplier");
+        DialogOpenResult result = tryOpen();
+        if (result != DialogOpenResult.UNSUPPORTED_CLIENT)
+            return result;
+        
+        Window fallback = fallbackSupplier.get();
+        if (fallback == null)
+            return result;
+        validateFallbackViewer(viewer, fallback.getViewer());
+        if (!isUsableViewer())
+            return DialogOpenResult.INVALID_VIEWER;
+        
+        fallback.open();
+        return DialogOpenResult.WINDOW_FALLBACK_OPENED;
+    }
+    
+    /**
+     * Shows the dialog or invokes a custom fallback for an unsupported client.
+     *
+     * @param fallback the custom compatibility fallback
+     * @return the result of the opening attempt
+     */
+    public DialogOpenResult openOrElse(Consumer<? super DialogOpenResult> fallback) {
+        Objects.requireNonNull(fallback, "fallback");
+        DialogOpenResult result = tryOpen();
+        if (result != DialogOpenResult.UNSUPPORTED_CLIENT)
+            return result;
+        
+        fallback.accept(result);
+        return DialogOpenResult.CUSTOM_FALLBACK_HANDLED;
+    }
+    
+    /**
+     * Closes the dialog while preserving the screen underneath it.
+     */
+    public void close() {
+        ThreadCheck.checkOwnedBy(viewer);
+        viewer.closeDialog();
+    }
+    
+    private boolean isUsableViewer() {
+        return !viewer.isSleeping() && viewer.isValid() && viewer.isConnected();
+    }
+
+    static void validateFallbackViewer(Player viewer, Player fallbackViewer) {
+        if (!fallbackViewer.getUniqueId().equals(viewer.getUniqueId()))
+            throw new IllegalArgumentException("The fallback Window must belong to the dialog viewer.");
     }
     
     /**
