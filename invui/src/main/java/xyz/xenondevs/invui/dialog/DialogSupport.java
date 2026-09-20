@@ -6,6 +6,10 @@ import java.util.Objects;
 
 /**
  * Provides the central client compatibility check for Paper dialogs.
+ * <p>
+ * This class uses the protocol value reported by Paper. It does not install
+ * or depend on ViaVersion, and therefore does not promise native-client
+ * detection through every proxy or protocol-translation setup.
  */
 public final class DialogSupport {
     

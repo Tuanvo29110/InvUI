@@ -21,7 +21,31 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
- * Associates a Paper dialog with the player it should be shown to.
+ * Associates a Paper {@link DialogLike} with the player it should be shown to.
+ * <p>
+ * A view is not an inventory {@link Window}: it is not registered with
+ * {@code WindowManager}, does not manage inventory state, and does not track a
+ * Paper client acknowledgement. Every opening method must be called from the
+ * viewer-owned thread. InvUI validates that requirement with
+ * {@code ThreadCheck}; it does not schedule the call.
+ * <p>
+ * For common dialogs, the experimental builder keeps Paper's dialog model but
+ * removes its base-building boilerplate:
+ *
+ * <pre>{@code
+ * DialogView view = DialogView.builder()
+ *     .setViewer(player)
+ *     .setTitle(Component.text("Confirm"))
+ *     .addBody(DialogBody.plainMessage(Component.text("Continue?")))
+ *     .setType(DialogType.notice())
+ *     .build();
+ *
+ * view.openOrFallback(() -> createFallbackWindow(player));
+ * }</pre>
+ *
+ * For advanced Paper features, pass an already-built dialog through
+ * {@link #of(Player, DialogLike)}. Paper action buttons and custom-click
+ * callbacks remain Paper concerns and are not copied into an InvUI registry.
  */
 public final class DialogView {
     
@@ -35,6 +59,9 @@ public final class DialogView {
     
     /**
      * Creates a view for a dialog built directly with Paper's API.
+     * <p>
+     * This is the stable escape hatch when the caller needs a Paper feature
+     * that the experimental InvUI builder does not expose.
      *
      * @param viewer the player to show the dialog to
      * @param dialog the already-built Paper dialog
@@ -74,8 +101,20 @@ public final class DialogView {
 
     /**
      * Tries to show the dialog without a fallback.
+     * <p>
+     * An invalid viewer returns {@link DialogOpenResult#INVALID_VIEWER}
+     * without checking the thread. A usable viewer must already be on its
+     * owned thread; otherwise {@code ThreadCheck} throws. An unsupported or
+     * unknown protocol returns {@link DialogOpenResult#UNSUPPORTED_CLIENT}.
+     * A supported viewer returns {@link DialogOpenResult#DIALOG_OPENED} after
+     * InvUI calls Paper's {@code showDialog}; Paper provides no client-side
+     * acknowledgement.
+     * <p>
+     * This method never evaluates a fallback because it has none.
      *
      * @return the result of the opening attempt
+     * @throws IllegalStateException if the caller is not on the viewer-owned
+     *     thread
      */
     public DialogOpenResult tryOpen() {
         if (!isUsableViewer())
@@ -91,9 +130,12 @@ public final class DialogView {
     
     /**
      * Shows the dialog strictly.
+     * <p>
+     * Unlike {@link #tryOpen()}, this method does not return an unsupported or
+     * invalid result. It throws instead of silently doing nothing.
      *
      * @throws IllegalStateException if the viewer is invalid or its client is
-     *     not supported
+     *     not supported, or if the caller is not on the viewer-owned thread
      */
     public void open() {
         switch (tryOpen()) {
@@ -106,9 +148,17 @@ public final class DialogView {
     
     /**
      * Shows the dialog or opens a Window fallback for the same viewer.
+     * <p>
+     * The fallback is used only for an unsupported client. It is never used
+     * for an invalid viewer, and it is not an after-close fallback. The Window
+     * must have the same viewer UUID as this view.
      *
      * @param fallback the fallback Window
      * @return the result of the opening attempt
+     * @throws IllegalArgumentException if the fallback belongs to another
+     *     viewer
+     * @throws IllegalStateException if the caller is not on the viewer-owned
+     *     thread
      */
     public DialogOpenResult openOrFallback(Window fallback) {
         Objects.requireNonNull(fallback, "fallback");
@@ -118,9 +168,18 @@ public final class DialogView {
     /**
      * Shows the dialog or lazily creates and opens a Window fallback for the
      * same viewer.
+     * <p>
+     * The supplier is not evaluated for a supported or invalid viewer. For an
+     * unsupported viewer it is evaluated exactly once. A {@code null} result
+     * means that no fallback was supplied and returns
+     * {@link DialogOpenResult#UNSUPPORTED_CLIENT}.
      *
      * @param fallbackSupplier the lazy fallback Window supplier
      * @return the result of the opening attempt
+     * @throws IllegalArgumentException if the fallback belongs to another
+     *     viewer
+     * @throws IllegalStateException if the caller is not on the viewer-owned
+     *     thread
      */
     public DialogOpenResult openOrFallback(Supplier<? extends @Nullable Window> fallbackSupplier) {
         Objects.requireNonNull(fallbackSupplier, "fallbackSupplier");
@@ -141,9 +200,15 @@ public final class DialogView {
     
     /**
      * Shows the dialog or invokes a custom fallback for an unsupported client.
+     * <p>
+     * The callback is invoked exactly once only for
+     * {@link DialogOpenResult#UNSUPPORTED_CLIENT}. It is not invoked for an
+     * invalid viewer or after a successful dialog request.
      *
      * @param fallback the custom compatibility fallback
      * @return the result of the opening attempt
+     * @throws IllegalStateException if the caller is not on the viewer-owned
+     *     thread
      */
     public DialogOpenResult openOrElse(Consumer<? super DialogOpenResult> fallback) {
         Objects.requireNonNull(fallback, "fallback");
@@ -157,6 +222,14 @@ public final class DialogView {
     
     /**
      * Closes the dialog while preserving the screen underneath it.
+     * <p>
+     * This uses Paper's dialog-specific close operation and intentionally does
+     * not reuse the opening usability check. In particular, a sleeping player
+     * is not rejected solely for being asleep. The caller must still already
+     * be on the viewer-owned thread.
+     *
+     * @throws IllegalStateException if the caller is not on the viewer-owned
+     *     thread
      */
     public void close() {
         ThreadCheck.checkOwnedBy(viewer);
@@ -173,7 +246,11 @@ public final class DialogView {
     }
     
     /**
-     * A builder for common Paper dialogs.
+     * An experimental builder for common Paper dialogs.
+     * <p>
+     * It delegates the final construction to Paper's registry-data dialog
+     * APIs. The viewer, title, and dialog type are required; body and input
+     * entries are optional.
      */
     @ApiStatus.Experimental
     public static final class Builder {
@@ -277,6 +354,10 @@ public final class DialogView {
         
         /**
          * Builds the dialog view.
+         * <p>
+         * The Paper dialog factories are resolved when this method is called,
+         * so the method must run in a Paper runtime that provides their
+         * ServiceLoader implementations.
          *
          * @return the built dialog view
          * @throws IllegalStateException if a viewer, title, or dialog type is missing
