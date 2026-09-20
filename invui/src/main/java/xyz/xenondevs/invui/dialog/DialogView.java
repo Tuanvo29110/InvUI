@@ -117,7 +117,7 @@ public final class DialogView {
      *     thread
      */
     public DialogOpenResult tryOpen() {
-        if (!isUsableViewer())
+        if (!isUsableViewer(viewer))
             return DialogOpenResult.INVALID_VIEWER;
         
         ThreadCheck.checkOwnedBy(viewer);
@@ -191,7 +191,7 @@ public final class DialogView {
         if (fallback == null)
             return result;
         validateFallbackViewer(viewer, fallback.getViewer());
-        if (!isUsableViewer())
+        if (!isUsableViewer(viewer) || !isUsableViewer(fallback.getViewer()))
             return DialogOpenResult.INVALID_VIEWER;
         
         fallback.open();
@@ -236,7 +236,7 @@ public final class DialogView {
         viewer.closeDialog();
     }
     
-    private boolean isUsableViewer() {
+    static boolean isUsableViewer(Player viewer) {
         return !viewer.isSleeping() && viewer.isValid() && viewer.isConnected();
     }
 
